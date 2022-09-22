@@ -307,9 +307,10 @@ func (r *PlacementAPIReconciler) reconcileInit(
 		},
 	)
 	// create or patch the DB
-	ctrlResult, err := db.CreateOrPatchDB(
+	ctrlResult, err := db.CreateOrPatchDBByName(
 		ctx,
 		helper,
+		instance.Spec.DatabaseInstance,
 	)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
