@@ -22,8 +22,14 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -86,7 +92,23 @@ func (r *PlacementAPI) ValidateCreate() error {
 func (r *PlacementAPI) ValidateUpdate(old runtime.Object) error {
 	placementapilog.Info("validate update", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object update.
+	oldPlacement, ok := old.(*PlacementAPI)
+	if !ok || oldPlacement == nil {
+		return apierrors.NewInternalError(fmt.Errorf("unable to convert existing object"))
+	}
+
+	if r.Spec.DatabaseInstance != oldPlacement.Spec.DatabaseInstance {
+		return apierrors.NewForbidden(
+			schema.GroupResource{
+				Group:    GroupVersion.WithKind("PlacementAPI").Group,
+				Resource: GroupVersion.WithKind("PlacementAPI").Kind,
+			}, r.GetName(), field.Forbidden(
+				field.NewPath("spec").Child("databaseInstance"),
+				"Value is immutable",
+			),
+		)
+	}
+
 	return nil
 }
 
