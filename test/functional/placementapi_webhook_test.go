@@ -43,7 +43,7 @@ var _ = Describe("Placement webhook", func() {
 		placementAPI.Delete()
 	})
 
-	When("databaseInstance is being updated", func() {
+	When("databaseInstance is being updated with advanced mode default", func() {
 		It("should be blocked by the webhook and fail", func() {
 			instance := placementAPI.Instance
 			_, err := controllerutil.CreateOrPatch(
@@ -53,6 +53,35 @@ var _ = Describe("Placement webhook", func() {
 				})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(ContainSubstring("spec.databaseInstance: Forbidden: Value is immutable"))
+		})
+	})
+
+	When("databaseInstance is being updated with advanced mode disabled", func() {
+		It("should be blocked by the webhook and fail", func() {
+			instance := placementAPI.Instance
+
+			_, err := controllerutil.CreateOrPatch(
+				th.Ctx, th.K8sClient, instance, func() error {
+					instance.Spec.AdvancedMode = false
+					instance.Spec.DatabaseInstance = "changed"
+					return nil
+				})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("spec.databaseInstance: Forbidden: Value is immutable"))
+		})
+	})
+
+	When("databaseInstance is being updated with advanced mode disabled", func() {
+		It("should be blocked by the webhook and fail", func() {
+			instance := placementAPI.Instance
+
+			_, err := controllerutil.CreateOrPatch(
+				th.Ctx, th.K8sClient, instance, func() error {
+					instance.Spec.AdvancedMode = true
+					instance.Spec.DatabaseInstance = "changed"
+					return nil
+				})
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })

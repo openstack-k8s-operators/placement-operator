@@ -48,6 +48,11 @@ spec:
           spec:
             description: PlacementAPISpec defines the desired state of PlacementAPI
             properties:
+              advancedMode:
+                default: false
+                description: AdvancedMode - allows some usage not fully supported
+                  by this operator.
+                type: boolean
               containerImage:
                 description: PlacementAPI Container Image URL (will be set to environmental
                   default if empty)
@@ -60,9 +65,9 @@ spec:
                   file.
                 type: string
               databaseInstance:
-                description: MariaDB instance name Right now required by the maridb-operator
-                  to get the credentials from the instance to create the DB Might
-                  not be required in future
+                description: MariaDB instance name. This can't be updated unless advanced
+                  mode is enabled, because updating this does not migrate data to
+                  a new database instance.
                 type: string
               databaseUser:
                 default: placement

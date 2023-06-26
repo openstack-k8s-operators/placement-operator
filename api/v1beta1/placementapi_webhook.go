@@ -97,16 +97,18 @@ func (r *PlacementAPI) ValidateUpdate(old runtime.Object) error {
 		return apierrors.NewInternalError(fmt.Errorf("unable to convert existing object"))
 	}
 
-	if r.Spec.DatabaseInstance != oldPlacement.Spec.DatabaseInstance {
-		return apierrors.NewForbidden(
-			schema.GroupResource{
-				Group:    GroupVersion.WithKind("PlacementAPI").Group,
-				Resource: GroupVersion.WithKind("PlacementAPI").Kind,
-			}, r.GetName(), field.Forbidden(
-				field.NewPath("spec").Child("databaseInstance"),
-				"Value is immutable",
-			),
-		)
+	if ! r.Spec.AdvancedMode {
+		if r.Spec.DatabaseInstance != oldPlacement.Spec.DatabaseInstance {
+			return apierrors.NewForbidden(
+				schema.GroupResource{
+					Group:    GroupVersion.WithKind("PlacementAPI").Group,
+					Resource: GroupVersion.WithKind("PlacementAPI").Kind,
+				}, r.GetName(), field.Forbidden(
+					field.NewPath("spec").Child("databaseInstance"),
+					"Value is immutable.",
+				),
+			)
+		}
 	}
 
 	return nil

@@ -46,9 +46,9 @@ type PlacementAPISpec struct {
 	ServiceUser string `json:"serviceUser"`
 
 	// +kubebuilder:validation:Required
-	// MariaDB instance name
-	// Right now required by the maridb-operator to get the credentials from the instance to create the DB
-	// Might not be required in future
+	// MariaDB instance name.
+	// This can't be updated unless advanced mode is enabled, because updating this does not migrate
+	// data to a new database instance.
 	DatabaseInstance string `json:"databaseInstance"`
 
 	// +kubebuilder:validation:Optional
@@ -85,6 +85,11 @@ type PlacementAPISpec struct {
 	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
 	// actual action pod gets started with sleep infinity
 	Debug PlacementAPIDebug `json:"debug,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// AdvancedMode - allows some usage not fully supported by this operator.
+	AdvancedMode bool `json:"advancedMode"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
