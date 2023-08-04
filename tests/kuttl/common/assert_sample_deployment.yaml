@@ -205,25 +205,6 @@ spec:
     service: placement
   type: ClusterIP
 ---
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: placement-public
-  labels:
-    public: "true"
-    service: placement
-spec:
-  port:
-    targetPort: placement-public
-  to:
-    kind: Service
-    name: placement-public
-status:
-  ingress:
-  - conditions:
-    - status: "True"
-      type: Admitted
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
