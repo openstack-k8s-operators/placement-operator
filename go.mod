@@ -46,6 +46,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
+	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/gophercloud/gophercloud v1.5.0 // indirect
@@ -81,7 +82,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.26.7 //indirect
 	k8s.io/component-base v0.26.7 //indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a //indirect
+	k8s.io/kube-openapi v0.0.0-20230811205723-7ac0aad8c58d //indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b //indirect
 	sigs.k8s.io/gateway-api v0.6.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd //indirect
