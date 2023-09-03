@@ -112,7 +112,7 @@ type PlacementAPIReconciler struct {
 
 // Reconcile reconcile placement API requests
 func (r *PlacementAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
-	l := GetLog(ctx)
+	log := GetLog(ctx)
 
 	// Fetch the PlacementAPI instance
 	instance := &placementv1.PlacementAPI{}
@@ -229,8 +229,8 @@ func (r *PlacementAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *PlacementAPIReconciler) reconcileDelete(ctx context.Context, instance *placementv1.PlacementAPI, helper *helper.Helper) (ctrl.Result, error) {
-	l := GetLog(ctx)
-	l.Info("Reconciling Service delete")
+	log := GetLog(ctx)
+	log.Info("Reconciling Service delete")
 
 	// remove db finalizer before the placement one
 	db, err := database.GetDatabaseByName(ctx, helper, instance.Name)
@@ -255,7 +255,7 @@ func (r *PlacementAPIReconciler) reconcileDelete(ctx context.Context, instance *
 		if err = helper.GetClient().Update(ctx, keystoneEndpoint); err != nil && !k8s_errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
-		l.Info("Removed finalizer from our KeystoneEndpoint")
+		log.Info("Removed finalizer from our KeystoneEndpoint")
 	}
 
 	// Remove the finalizer from our KeystoneService CR
@@ -269,13 +269,13 @@ func (r *PlacementAPIReconciler) reconcileDelete(ctx context.Context, instance *
 		if err = helper.GetClient().Update(ctx, keystoneService); err != nil && !k8s_errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
-		l.Info("Removed finalizer from our KeystoneService")
+		log.Info("Removed finalizer from our KeystoneService")
 	}
 
 	// We did all the cleanup on the objects we created so we can remove the
 	// finalizer from ourselves to allow the deletion
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-	l.Info("Reconciled Service delete successfully")
+	log.Info("Reconciled Service delete successfully")
 	return ctrl.Result{}, nil
 }
 
@@ -286,8 +286,8 @@ func (r *PlacementAPIReconciler) reconcileInit(
 	serviceLabels map[string]string,
 	serviceAnnotations map[string]string,
 ) (ctrl.Result, error) {
-	l := GetLog(ctx)
-	l.Info("Reconciling Service init")
+	log := GetLog(ctx)
+	log.Info("Reconciling Service init")
 
 	// Service account, role, binding
 	rbacRules := []rbacv1.PolicyRule{
@@ -511,39 +511,39 @@ func (r *PlacementAPIReconciler) reconcileInit(
 	}
 	if dbSyncjob.HasChanged() {
 		instance.Status.Hash[placementv1.DbSyncHash] = dbSyncjob.GetHash()
-		l.Info("Job hash added", "job Name", jobDef.Name, "Job Hash" ,instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage))
+		log.Info("Job hash added", "job Name", jobDef.Name, "Job Hash" ,instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage))
 
 	// run placement db sync - end
 
-	l.Info("Reconciled Service init successfully")
+	log.Info("Reconciled Service init successfully")
 	return ctrl.Result{}, nil
 }
 
 func (r *PlacementAPIReconciler) reconcileUpdate(ctx context.Context, instance *placementv1.PlacementAPI, helper *helper.Helper) (ctrl.Result, error) {
-	l := GetLog(ctx)
-	l.Info("Reconciling Service update")
+	log := GetLog(ctx)
+	log.Info("Reconciling Service update")
 
 	// TODO: should have minor update tasks if required
 	// - delete dbsync hash from status to rerun it?
 
-	l.Info("Reconciled Service update successfully")
+	log.Info("Reconciled Service update successfully")
 	return ctrl.Result{}, nil
 }
 
 func (r *PlacementAPIReconciler) reconcileUpgrade(ctx context.Context, instance *placementv1.PlacementAPI, helper *helper.Helper) (ctrl.Result, error) {
-	l := GetLog(ctx)
-	l.Info("Reconciling Service upgrade")
+	log := GetLog(ctx)
+	log.Info("Reconciling Service upgrade")
 
 	// TODO: should have major version upgrade tasks
 	// -delete dbsync hash from status to rerun it?
 
-	l.Info("Reconciled Service upgrade successfully")
+	log.Info("Reconciled Service upgrade successfully")
 	return ctrl.Result{}, nil
 }
 
 func (r *PlacementAPIReconciler) reconcileNormal(ctx context.Context, instance *placementv1.PlacementAPI, helper *helper.Helper) (ctrl.Result, error) {
-	l := GetLog(ctx)
-	l.Info("Reconciling Service")
+	log := GetLog(ctx)
+	log.Info("Reconciling Service")
 
 	// ConfigMap
 	configMapVars := make(map[string]env.Setter)
@@ -729,7 +729,7 @@ func (r *PlacementAPIReconciler) reconcileNormal(ctx context.Context, instance *
 	}
 	// create Deployment - end
 
-	l.Info("Reconciled Service successfully")
+	log.Info("Reconciled Service successfully")
 	return ctrl.Result{}, nil
 }
 
@@ -809,7 +809,7 @@ func (r *PlacementAPIReconciler) createHashOfInputHashes(
 	instance *placementv1.PlacementAPI,
 	envVars map[string]env.Setter,
 ) (string, bool, error) {
-	l := GetLog(ctx)
+	log := GetLog(ctx)
 	var hashMap map[string]string
 	changed := false
 	mergedMapVars := env.MergeEnvs([]corev1.EnvVar{}, envVars)
@@ -819,7 +819,7 @@ func (r *PlacementAPIReconciler) createHashOfInputHashes(
 	}
 	if hashMap, changed = util.SetHash(instance.Status.Hash, common.InputHashName, hash); changed {
 		instance.Status.Hash = hashMap
-		l.Info("Input maps hash","Hash Name", common.InputHashName,"Hash", hash)
+		log.Info("Input maps hash","Hash Name", common.InputHashName,"Hash", hash)
 	}
 	return hash, changed, nil
 }
