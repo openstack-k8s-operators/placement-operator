@@ -29,6 +29,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -38,15 +39,15 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	routev1 "github.com/openshift/api/route/v1"
-
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	test "github.com/openstack-k8s-operators/lib-common/modules/test"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
 	placementv1 "github.com/openstack-k8s-operators/placement-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/placement-operator/controllers"
 
-	. "github.com/openstack-k8s-operators/lib-common/modules/test/helpers"
+	keystone_test "github.com/openstack-k8s-operators/keystone-operator/api/test/helpers"
+	common_test "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
+	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -60,8 +61,11 @@ var (
 	ctx       context.Context
 	cancel    context.CancelFunc
 	logger    logr.Logger
-	th        *TestHelper
+	th        *common_test.TestHelper
+	keystone  *keystone_test.TestHelper
+	mariadb   *mariadb_test.TestHelper
 	namespace string
+	names     Names
 )
 
 const (
@@ -89,8 +93,6 @@ var _ = BeforeSuite(func() {
 	mariaDBCRDs, err := test.GetCRDDirFromModule(
 		"github.com/openstack-k8s-operators/mariadb-operator/api", "../../go.mod", "bases")
 	Expect(err).ShouldNot(HaveOccurred())
-	routev1CRDs, err := test.GetOpenShiftCRDDir("route/v1", "../../go.mod")
-	Expect(err).ShouldNot(HaveOccurred())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -99,7 +101,6 @@ var _ = BeforeSuite(func() {
 			// NOTE(gibi): we need to list all the external CRDs our operator depends on
 			keystoneCRDs,
 			mariaDBCRDs,
-			routev1CRDs,
 		},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
@@ -126,8 +127,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = keystonev1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = routev1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
 	//+kubebuilder:scaffold:scheme
 
 	logger = ctrl.Log.WithName("---Test---")
@@ -135,8 +134,12 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-	th = NewTestHelper(ctx, k8sClient, timeout, interval, logger)
+	th = common_test.NewTestHelper(ctx, k8sClient, timeout, interval, logger)
 	Expect(th).NotTo(BeNil())
+	keystone = keystone_test.NewTestHelper(ctx, k8sClient, timeout, interval, logger)
+	Expect(keystone).NotTo(BeNil())
+	mariadb = mariadb_test.NewTestHelper(ctx, k8sClient, timeout, interval, logger)
+	Expect(mariadb).NotTo(BeNil())
 
 	// Start the controller-manager if goroutine
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
@@ -203,4 +206,11 @@ var _ = BeforeEach(func() {
 	// We still request the delete of the Namespace to properly cleanup if
 	// we run the test in an existing cluster.
 	DeferCleanup(th.DeleteNamespace, namespace)
+
+	placementAPIName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      uuid.New().String()[:25],
+	}
+
+	names = CreateNames(placementAPIName)
 })
