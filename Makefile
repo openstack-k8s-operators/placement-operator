@@ -364,3 +364,43 @@ scale-down-placement-controller-csv:
 	if [ "$(has_webhooks)" != "null" ]; then \
 	    oc patch csv -n $(OPERATOR_NAMESPACE) placement-operator.v0.0.1 --type json -p='[{"op": "remove", "path": "/spec/webhookdefinitions"}]'; \
 	fi
+	
+KUTTL_SUITE ?= default
+KUTTL_NAMESPACE ?= placement-kuttl-tests
+KUTTL_SUITE_DIR ?= tests/kuttl/test-suites/$(KUTTL_SUITE)
+
+.PHONY: kuttl-test-prep
+kuttl-test-prep:
+	oc apply -k $(KUTTL_SUITE_DIR)/deps/ --timeout=120s
+	oc wait -n $(KUTTL_NAMESPACE) openstackcontrolplane openstack --for condition=Ready --timeout=300s
+
+.PHONY: kuttl-test-run
+kuttl-test-run: export NAMESPACE = $(KUTTL_NAMESPACE)
+kuttl-test-run:
+	oc kuttl test --v 1 --start-kind=false --config $(KUTTL_SUITE_DIR)/config.yaml
+
+.PHONY: kuttl-test
+kuttl-test: kuttl-test-prep kuttl-test-run
+
+.PHONY: kuttl-test-cleanup
+kuttl-test-cleanup:
+	# only cleanup if the $(KUTTL_NAMESPACE) exists
+	$(eval namespace_exists=$(shell oc get namespace $(KUTTL_NAMESPACE) --ignore-not-found -o name))
+	# We need to order the deletion. Simply deleting the namespace will
+	# result in errors in mariadb- and keystone-operator and then
+	# finalizer removal get stuck blocking the namespace deletion.
+	if [ "${namespace_exists}" != "" ]; then \
+		if [ "$(KUTTL_SUITE)" == "autoscaling" ]; then \
+			oc delete --wait=true --all=true -n $(KUTTL_NAMESPACE) --timeout=120s Autoscaling; \
+		fi; \
+		if [ "$(KUTTL_SUITE)" == "ceilometer" ]; then \
+			oc delete --wait=true --all=true -n $(KUTTL_NAMESPACE) --timeout=120s Ceilometer; \
+		fi; \
+		if [ "$(KUTTL_SUITE)" == "default" ]; then \
+			oc delete --wait=true --all=true -n $(KUTTL_NAMESPACE) --timeout=120s Telemetry; \
+		fi; \
+		oc delete --wait=true --all=true -n $(KUTTL_NAMESPACE) --timeout=120s OpenStackControlPlane; \
+		oc delete --wait=true namespace $(KUTTL_NAMESPACE); \
+	else \
+		echo "Namespce already cleaned up. Nothing to do"; \
+	fi
