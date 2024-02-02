@@ -1,0 +1,40 @@
+{
+   "name": "",
+   "tests": 3,
+   "failures": 1,
+   "time": "334.084",
+   "testsuite": [
+     {
+       "tests": 3,
+       "failures": 1,
+       "timestamp": "2024-01-05T16:01:14.739927108+01:00",
+       "time": "322.664",
+       "name": "tests/kuttl/test-suites/default/",
+       "testcase": [
+         {
+           "classname": "default",
+           "name": "deps",
+           "timestamp": "2024-01-05T16:01:14.740035321+01:00",
+           "time": "0.000"
+         },
+         {
+           "classname": "default",
+           "name": "scale-tests",
+           "timestamp": "2024-01-05T16:01:14.743540703+01:00",
+           "time": "322.661",
+           "assertions": 18,
+           "failure": {
+             "text": "resource Deployment:placement-kuttl-tests/placement: .spec.replicas: value mismatch, expected: 2 != actual: 1",
+             "message": "failed in step 3-scale-placementapi"
+           }
+         },
+         {
+           "classname": "default",
+           "name": "output",
+           "timestamp": "2024-01-05T16:06:37.404168159+01:00",
+           "time": "0.000"
+         }
+       ]
+     }
+   ]
+ }

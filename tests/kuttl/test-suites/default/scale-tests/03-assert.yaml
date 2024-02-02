@@ -1,0 +1,28 @@
+#
+# Check for:
+#
+# - 1 placementAPI CR
+# - 3 Pods for placementAPI CR
+#
+
+apiVersion: placement.openstack.org/v1beta1
+kind: PlacementAPI
+metadata:
+  finalizers:
+  - PlacementAPI
+  name: placement
+  namespace: placement-kuttl-tests
+spec:
+  replicas: 2
+status:
+  readyCount: 2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: placement
+  namespace: placement-kuttl-tests
+spec:
+  replicas: 2
+status:
+  availableReplicas: 2
