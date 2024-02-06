@@ -35,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
@@ -179,7 +178,6 @@ func (r *PlacementAPIReconciler) GetSecretMapperFor(crs client.ObjectList, ctx c
 			}
 			return nil
 		})
-
 		if err != nil {
 			Log.Error(err, "Unable to iterate the list of CRs")
 			panic(err)
@@ -332,14 +330,12 @@ const (
 	tlsAPIPublicField       = ".spec.tls.api.public.secretName"
 )
 
-var (
-	allWatchFields = []string{
-		passwordSecretField,
-		caBundleSecretNameField,
-		tlsAPIInternalField,
-		tlsAPIPublicField,
-	}
-)
+var allWatchFields = []string{
+	passwordSecretField,
+	caBundleSecretNameField,
+	tlsAPIInternalField,
+	tlsAPIPublicField,
+}
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PlacementAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -405,14 +401,14 @@ func (r *PlacementAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rbacv1.Role{}).
 		Owns(&rbacv1.RoleBinding{}).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
+			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
 
-func (r *PlacementAPIReconciler) findObjectsForSrc(src client.Object) []reconcile.Request {
+func (r *PlacementAPIReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
 	l := log.FromContext(context.Background()).WithName("Controllers").WithName("PlacementAPI")
@@ -591,7 +587,7 @@ func (r *PlacementAPIReconciler) reconcileInit(
 	//
 	// expose the service (create service, route and return the created endpoint URLs)
 	//
-	var placementEndpoints = map[service.Endpoint]endpoint.Data{
+	placementEndpoints := map[service.Endpoint]endpoint.Data{
 		service.EndpointPublic:   {Port: placement.PlacementPublicPort},
 		service.EndpointInternal: {Port: placement.PlacementInternalPort},
 	}
