@@ -11,8 +11,8 @@ require (
 	github.com/onsi/ginkgo/v2 v2.14.0
 	github.com/onsi/gomega v1.30.0
 	github.com/openstack-k8s-operators/keystone-operator/api v0.3.1-0.20240117115727-432678553b37
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.3.1-0.20240122121228-01dfaafeef46
-	github.com/openstack-k8s-operators/lib-common/modules/test v0.3.1-0.20240122121228-01dfaafeef46
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.3.1-0.20240124141114-55d029e4658b
+	github.com/openstack-k8s-operators/lib-common/modules/test v0.3.1-0.20240124141114-55d029e4658b
 	github.com/openstack-k8s-operators/mariadb-operator/api v0.3.1-0.20240124160436-36095347284f
 	github.com/openstack-k8s-operators/placement-operator/api v0.0.0-20230602092913-53f380989946
 	go.uber.org/zap v1.26.0
@@ -56,7 +56,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/openshift/api v3.9.0+incompatible // indirect
-	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.3.1-0.20240122121228-01dfaafeef46 //indirect
+	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.3.1-0.20240124141114-55d029e4658b //indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.18.0 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
@@ -91,3 +91,19 @@ replace github.com/openstack-k8s-operators/placement-operator/api => ./api
 // mschuppert: map to latest commit from release-4.13 tag
 // must consistent within modules and service operators
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20230414143018-3367bc7e6ac7 //allow-merging
+
+// bshephar:bump-controller-runtime
+replace github.com/openstack-k8s-operators/lib-common/modules/common => github.com/bshephar/lib-common/modules/common v0.0.0-20240205000728-69fddd97f72e
+
+replace github.com/openstack-k8s-operators/lib-common/modules/openstack => github.com/bshephar/lib-common/modules/openstack v0.0.0-20240205000728-69fddd97f72e
+
+replace github.com/openstack-k8s-operators/lib-common/modules/test => github.com/bshephar/lib-common/modules/test v0.0.0-20240205000728-69fddd97f72e
+
+// bshephar:controller-runtime-v16
+replace github.com/openstack-k8s-operators/infra-operator/apis => github.com/bshephar/infra-operator/apis v0.0.0-20240203105616-470002c29854
+
+//bshephar:controller-runtime
+replace github.com/openstack-k8s-operators/keystone-operator/api => github.com/bshephar/keystone-operator/api v0.0.0-20240206015741-a4ea5b5f67db
+
+//bshephar:controller-runtime
+replace github.com/openstack-k8s-operators/mariadb-operator/api => github.com/bshephar/mariadb-operator/api v0.0.0-20240206224814-4264f1e7465a

@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.21.1
 
 require (
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.3.1-0.20240122121228-01dfaafeef46
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.3.1-0.20240124141114-55d029e4658b
 	k8s.io/api v0.29.1
 	k8s.io/apimachinery v0.29.1
 	sigs.k8s.io/controller-runtime v0.17.0
