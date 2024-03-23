@@ -3,7 +3,7 @@ module github.com/openstack-k8s-operators/placement-operator/api
 go 1.20
 
 require (
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.3.1-0.20240313084555-12e3d33d7a2d
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.3.1-0.20240314165949-fec16b14c33b
 	k8s.io/api v0.28.7
 	k8s.io/apimachinery v0.28.7
 	sigs.k8s.io/controller-runtime v0.16.5
@@ -45,8 +45,8 @@ require (
 	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
-	golang.org/x/term v0.17.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
