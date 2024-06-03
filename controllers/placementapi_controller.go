@@ -48,7 +48,7 @@ import (
 	labels "github.com/openstack-k8s-operators/lib-common/modules/common/labels"
 	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	common_rbac "github.com/openstack-k8s-operators/lib-common/modules/common/rbac"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
+	common_secret "github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	util "github.com/openstack-k8s-operators/lib-common/modules/common/util"
@@ -65,79 +65,9 @@ import (
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-type conditionUpdater interface {
-	Set(c *condition.Condition)
-	MarkTrue(t condition.Type, messageFormat string, messageArgs ...interface{})
-}
-
 type GetSecret interface {
 	GetSecret() string
 	client.Object
-}
-
-// ensureSecret - ensures that the Secret object exists and the expected fields
-// are in the Secret. It returns a hash of the values of the expected fields.
-func ensureSecret(
-	ctx context.Context,
-	secretName types.NamespacedName,
-	expectedFields []string,
-	reader client.Reader,
-	conditionUpdater conditionUpdater,
-) (string, ctrl.Result, corev1.Secret, error) {
-	secret := &corev1.Secret{}
-	err := reader.Get(ctx, secretName, secret)
-	if err != nil {
-		if k8s_errors.IsNotFound(err) {
-			conditionUpdater.Set(condition.FalseCondition(
-				condition.InputReadyCondition,
-				condition.RequestedReason,
-				condition.SeverityInfo,
-				fmt.Sprintf("Input data resources missing: %s", "secret/"+secretName.Name)))
-			return "",
-				ctrl.Result{},
-				*secret,
-				fmt.Errorf("Secret %s not found", secretName)
-		}
-		conditionUpdater.Set(condition.FalseCondition(
-			condition.InputReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.InputReadyErrorMessage,
-			err.Error()))
-		return "", ctrl.Result{}, *secret, err
-	}
-
-	// collect the secret values the caller expects to exist
-	values := [][]byte{}
-	for _, field := range expectedFields {
-		val, ok := secret.Data[field]
-		if !ok {
-			err := fmt.Errorf("field '%s' not found in secret/%s", field, secretName.Name)
-			conditionUpdater.Set(condition.FalseCondition(
-				condition.InputReadyCondition,
-				condition.ErrorReason,
-				condition.SeverityWarning,
-				condition.InputReadyErrorMessage,
-				err.Error()))
-			return "", ctrl.Result{}, *secret, err
-		}
-		values = append(values, val)
-	}
-
-	// TODO(gibi): Do we need to watch the Secret for changes?
-
-	hash, err := util.ObjectHash(values)
-	if err != nil {
-		conditionUpdater.Set(condition.FalseCondition(
-			condition.InputReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.InputReadyErrorMessage,
-			err.Error()))
-		return "", ctrl.Result{}, *secret, err
-	}
-
-	return hash, ctrl.Result{}, *secret, nil
 }
 
 // GetLog returns a logger object with a prefix of "controller.name" and additional controller context fields
@@ -286,14 +216,15 @@ func (r *PlacementAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	hash, result, secret, err := ensureSecret(
+	hash, result, secret, err := common_secret.EnsureSecret(
 		ctx,
 		types.NamespacedName{Namespace: instance.Namespace, Name: instance.Spec.Secret},
 		[]string{
 			instance.Spec.PasswordSelectors.Service,
 		},
 		h.GetClient(),
-		&instance.Status.Conditions)
+		&instance.Status.Conditions,
+		time.Duration(5)*time.Second)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -433,17 +364,6 @@ func (r *PlacementAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	err = r.ensureKeystoneServiceUser(ctx, h, instance)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	result, err = r.ensureKeystoneEndpoint(ctx, h, instance, apiEndpoints)
-	if (err != nil || result != ctrl.Result{}) {
-		// We can ignore RequeueAfter as we are watching the KeystoneEndpoint resource
-		return ctrl.Result{}, err
-	}
-
 	result, err = r.ensureDbSync(ctx, instance, h, serviceAnnotations)
 	if (err != nil || result != ctrl.Result{}) {
 		return result, err
@@ -457,6 +377,21 @@ func (r *PlacementAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// remove finalizers from unused MariaDBAccount records
 	err = mariadbv1.DeleteUnusedMariaDBAccountFinalizers(ctx, h, placement.DatabaseName, instance.Spec.DatabaseAccount, instance.Namespace)
 	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// Only expose the service is the deployment succeeded
+	if !instance.Status.Conditions.IsTrue(condition.DeploymentReadyCondition) {
+		Log.Info("Waiting for the Deployment to become Ready before exposing the sevice in Keystone")
+		return ctrl.Result{}, nil
+	}
+	err = r.ensureKeystoneServiceUser(ctx, h, instance)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	result, err = r.ensureKeystoneEndpoint(ctx, h, instance, apiEndpoints)
+	if (err != nil || result != ctrl.Result{}) {
+		// We can ignore RequeueAfter as we are watching the KeystoneEndpoint resource
 		return ctrl.Result{}, err
 	}
 
@@ -1265,7 +1200,7 @@ func (r *PlacementAPIReconciler) generateServiceConfigMaps(
 			AdditionalTemplate: extraTemplates,
 		},
 	}
-	return secret.EnsureSecrets(ctx, h, instance, cms, envVars)
+	return common_secret.EnsureSecrets(ctx, h, instance, cms, envVars)
 }
 
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart
