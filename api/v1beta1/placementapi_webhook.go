@@ -175,3 +175,25 @@ func ValidateDefaultConfigOverwrite(
 	}
 	return errors
 }
+
+// SetDefaultRouteAnnotations sets HAProxy timeout values of the route
+func (spec *PlacementAPISpecCore) SetDefaultRouteAnnotations(annotations map[string]string) {
+	const haProxyAnno = "haproxy.router.openshift.io/timeout"
+	// Use a custom annotation to flag when the operator has set the default HAProxy timeout
+	// With the annotation func determines when to overwrite existing HAProxy timeout with the APITimeout
+	const placementAnno = "api.placement.openstack.org/timeout"
+	valPlacementAPI, okPlacemenAPI := annotations[placementAnno]
+	valHAProxy, okHAProxy := annotations[haProxyAnno]
+	// Human operator set the HAProxy timeout manually
+	if !okPlacemenAPI && okHAProxy {
+		return
+	}
+	// Human operator modified the HAProxy timeout manually without removing the Placemen flag
+	if okPlacemenAPI && okHAProxy && valPlacementAPI != valHAProxy {
+		delete(annotations, placementAnno)
+		return
+	}
+	timeout := fmt.Sprintf("%ds", spec.APITimeout)
+	annotations[placementAnno] = timeout
+	annotations[haProxyAnno] = timeout
+}
