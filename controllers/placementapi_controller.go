@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -815,10 +816,11 @@ func (r *PlacementAPIReconciler) initConditions(
 
 // fields to index to reconcile when change
 const (
-	passwordSecretField     = ".spec.secret"
-	caBundleSecretNameField = ".spec.tls.caBundleSecretName"
-	tlsAPIInternalField     = ".spec.tls.api.internal.secretName"
-	tlsAPIPublicField       = ".spec.tls.api.public.secretName"
+	passwordSecretField                 = ".spec.secret"
+	caBundleSecretNameField             = ".spec.tls.caBundleSecretName"
+	tlsAPIInternalField                 = ".spec.tls.api.internal.secretName"
+	tlsAPIPublicField                   = ".spec.tls.api.public.secretName"
+	httpdCustomServiceConfigSecretField = ".spec.httpdCustomization.customServiceConfigSecret"
 )
 
 var allWatchFields = []string{
@@ -826,6 +828,7 @@ var allWatchFields = []string{
 	caBundleSecretNameField,
 	tlsAPIInternalField,
 	tlsAPIPublicField,
+	httpdCustomServiceConfigSecretField,
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -874,6 +877,18 @@ func (r *PlacementAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return nil
 		}
 		return []string{*cr.Spec.TLS.API.Public.SecretName}
+	}); err != nil {
+		return err
+	}
+
+	// index httpdOverrideSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &placementv1.PlacementAPI{}, httpdCustomServiceConfigSecretField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*placementv1.PlacementAPI)
+		if cr.Spec.HttpdCustomization.CustomConfigSecret == nil {
+			return nil
+		}
+		return []string{*cr.Spec.HttpdCustomization.CustomConfigSecret}
 	}); err != nil {
 		return err
 	}
@@ -1242,7 +1257,7 @@ func (r *PlacementAPIReconciler) generateServiceConfigMaps(
 		"KeystoneInternalURL": keystoneInternalURL,
 		"KeystonePublicURL":   keystonePublicURL,
 		"PlacementPassword":   string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
-		"log_file":            "/var/log/placement/placement-api.log",
+		"LogFile":             "/var/log/placement/placement-api.log",
 		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s?read_default_file=/etc/my.cnf",
 			databaseAccount.Spec.UserName,
 			string(dbSecret.Data[mariadbv1.DatabasePasswordSelector]),
@@ -1251,7 +1266,16 @@ func (r *PlacementAPIReconciler) generateServiceConfigMaps(
 		),
 	}
 
+	httpdOverrideSecret := &corev1.Secret{}
+	if instance.Spec.HttpdCustomization.CustomConfigSecret != nil && *instance.Spec.HttpdCustomization.CustomConfigSecret != "" {
+		httpdOverrideSecret, _, err = secret.GetSecret(ctx, h, *instance.Spec.HttpdCustomization.CustomConfigSecret, instance.Namespace)
+		if err != nil {
+			return err
+		}
+	}
+
 	// create httpd  vhost template parameters
+	customTemplates := map[string]string{}
 	httpdVhostConfig := map[string]interface{}{}
 	for _, endpt := range []service.Endpoint{service.EndpointInternal, service.EndpointPublic} {
 		endptConfig := map[string]interface{}{}
@@ -1262,10 +1286,27 @@ func (r *PlacementAPIReconciler) generateServiceConfigMaps(
 			endptConfig["SSLCertificateFile"] = fmt.Sprintf("/etc/pki/tls/certs/%s.crt", endpt.String())
 			endptConfig["SSLCertificateKeyFile"] = fmt.Sprintf("/etc/pki/tls/private/%s.key", endpt.String())
 		}
+
+		endptConfig["Override"] = false
+		if len(httpdOverrideSecret.Data) > 0 {
+			endptConfig["Override"] = true
+			for key, data := range httpdOverrideSecret.Data {
+				if len(data) > 0 {
+					customTemplates["httpd_custom_"+endpt.String()+"_"+key] = string(data)
+				}
+			}
+		}
 		httpdVhostConfig[endpt.String()] = endptConfig
 	}
 	templateParameters["VHosts"] = httpdVhostConfig
 	templateParameters["TimeOut"] = instance.Spec.APITimeout
+
+	// Marshal the templateParameters map to YAML
+	yamlData, err := yaml.Marshal(templateParameters)
+	if err != nil {
+		return fmt.Errorf("Error marshalling to YAML: %w", err)
+	}
+	customData[common.TemplateParameters] = string(yamlData)
 
 	extraTemplates := map[string]string{
 		"placement.conf": "placementapi/config/placement.conf",
@@ -1286,6 +1327,7 @@ func (r *PlacementAPIReconciler) generateServiceConfigMaps(
 			Namespace:          instance.Namespace,
 			Type:               util.TemplateTypeConfig,
 			InstanceType:       instance.Kind,
+			StringTemplate:     customTemplates,
 			CustomData:         customData,
 			ConfigOptions:      templateParameters,
 			Labels:             cmLabels,
