@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
 )
@@ -977,6 +978,62 @@ var _ = Describe("PlacementAPI controller", func() {
 			}, timeout, interval).Should(Succeed())
 		})
 	})
+
+	When("A PlacementAPI is created with HttpdCustomization.CustomConfigSecret", func() {
+		BeforeEach(func() {
+			customServiceConfigSecretName := types.NamespacedName{Name: "foo", Namespace: namespace}
+			customConfig := []byte(`CustomParam "foo"
+CustomKeystonePublicURL "{{ .KeystonePublicURL }}"`)
+			th.CreateSecret(
+				customServiceConfigSecretName,
+				map[string][]byte{
+					"bar.conf": customConfig,
+				},
+			)
+
+			spec := GetDefaultPlacementAPISpec()
+			spec["httpdCustomization"] = map[string]interface{}{
+				"customConfigSecret": customServiceConfigSecretName.Name,
+			}
+
+			placement := CreatePlacementAPI(names.PlacementAPIName, spec)
+			DeferCleanup(th.DeleteInstance, placement)
+
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(namespace))
+			DeferCleanup(k8sClient.Delete, ctx, CreatePlacementAPISecret(namespace, SecretName))
+
+			serviceSpec := corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 3306}}}
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(namespace, "openstack", serviceSpec),
+			)
+			mariadb.SimulateMariaDBDatabaseCompleted(names.MariaDBDatabaseName)
+			mariadb.SimulateMariaDBAccountCompleted(names.MariaDBAccount)
+
+			th.SimulateJobSuccess(names.DBSyncJobName)
+			th.SimulateDeploymentReplicaReady(names.DeploymentName)
+			keystone.SimulateKeystoneServiceReady(names.KeystoneServiceName)
+			keystone.SimulateKeystoneEndpointReady(names.KeystoneEndpointName)
+			DeferCleanup(th.DeleteInstance, placement)
+		})
+
+		It("it renders the custom template and adds it to the placement-config-data secret", func() {
+			scrt := th.GetSecret(names.ConfigMapName)
+			Expect(scrt).ShouldNot(BeNil())
+			Expect(scrt.Data).Should(HaveKey(common.TemplateParameters))
+			configData := string(scrt.Data[common.TemplateParameters])
+			keystonePublicURL := "http://keystone-public-openstack.testing"
+			Expect(configData).Should(ContainSubstring(fmt.Sprintf("KeystonePublicURL: %s", keystonePublicURL)))
+
+			for _, cfg := range []string{"httpd_custom_internal_bar.conf", "httpd_custom_public_bar.conf"} {
+				Expect(scrt.Data).Should(HaveKey(cfg))
+				configData := string(scrt.Data[cfg])
+				Expect(configData).Should(ContainSubstring("CustomParam \"foo\""))
+				Expect(configData).Should(ContainSubstring(fmt.Sprintf("CustomKeystonePublicURL \"%s\"", keystonePublicURL)))
+			}
+		})
+	})
+
 	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
 	// that exercise standard account create / update patterns that should be
 	// common to all controllers that ensure MariaDBAccount CRs.

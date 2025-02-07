@@ -124,6 +124,10 @@ type PlacementAPISpecCore struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// TLS - Parameters related to the TLS
 	TLS tls.API `json:"tls,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// HttpdCustomization - customize the httpd service
+	HttpdCustomization HttpdCustomization `json:"httpdCustomization,omitempty"`
 }
 
 // APIOverrideSpec to override the generated manifest of several child resources.
@@ -139,6 +143,19 @@ type PasswordSelector struct {
 	// +kubebuilder:default="PlacementPassword"
 	// Service - Selector to get the service user password from the Secret
 	Service string `json:"service"`
+}
+
+// HttpdCustomization - customize the httpd service
+type HttpdCustomization struct {
+	// +kubebuilder:validation:Optional
+	// CustomConfigSecret - customize the httpd vhost config using this parameter to specify
+	// a secret that contains service config data. The content of each provided snippet gets
+	// rendered as a go template and placed into /etc/httpd/conf/httpd_custom_<key> .
+	// In the default httpd template at the end of the vhost those custom configs get
+	// included using `Include conf/httpd_custom_<endpoint>_*`.
+	// For information on how sections in httpd configuration get merged, check section
+	// "How the sections are merged" in https://httpd.apache.org/docs/current/sections.html#merging
+	CustomConfigSecret *string `json:"customConfigSecret,omitempty"`
 }
 
 // PlacementAPIStatus defines the observed state of PlacementAPI
