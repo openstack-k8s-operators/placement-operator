@@ -66,6 +66,11 @@ import (
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+const (
+	//NovaNetworkAttachmentsReadyInitMessage
+	NovaNetworkAttachmentsReadyErrorMessage = "NetworkAttachments error occurred not all pods have interfaces with ips as configured in NetworkAttachments: %s"
+)
+
 type conditionUpdater interface {
 	Set(c *condition.Condition)
 	MarkTrue(t condition.Type, messageFormat string, messageArgs ...interface{})
@@ -97,7 +102,7 @@ func ensureSecret(
 			return "",
 				ctrl.Result{},
 				*secret,
-				fmt.Errorf("Secret %s not found", secretName)
+				fmt.Errorf("%w: Secret %s not found", err, secretName)
 		}
 		conditionUpdater.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -113,7 +118,7 @@ func ensureSecret(
 	for _, field := range expectedFields {
 		val, ok := secret.Data[field]
 		if !ok {
-			err := fmt.Errorf("field '%s' not found in secret/%s", field, secretName.Name)
+			err := fmt.Errorf("%w: field '%s' not found in secret/%s", ErrFieldNotFound, field, secretName.Name)
 			conditionUpdater.Set(condition.FalseCondition(
 				condition.InputReadyCondition,
 				condition.ErrorReason,
@@ -816,7 +821,7 @@ func (r *PlacementAPIReconciler) initConditions(
 // fields to index to reconcile when change
 const (
 	passwordSecretField     = ".spec.secret"
-	caBundleSecretNameField = ".spec.tls.caBundleSecretName"
+	caBundleSecretNameField = ".spec.tls.caBundleSecretName" // #nosec G101
 	tlsAPIInternalField     = ".spec.tls.api.internal.secretName"
 	tlsAPIPublicField       = ".spec.tls.api.public.secretName"
 )
@@ -1156,13 +1161,12 @@ func (r *PlacementAPIReconciler) ensureDeployment(
 	if networkReady {
 		instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
 	} else {
-		err := fmt.Errorf("not all pods have interfaces with ips as configured in NetworkAttachments: %s", instance.Spec.NetworkAttachments)
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.NetworkAttachmentsReadyCondition,
 			condition.ErrorReason,
 			condition.SeverityWarning,
-			condition.NetworkAttachmentsReadyErrorMessage,
-			err.Error()))
+			NovaNetworkAttachmentsReadyErrorMessage,
+			instance.Spec.NetworkAttachments))
 
 		return ctrl.Result{}, err
 	}
