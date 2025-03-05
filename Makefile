@@ -378,7 +378,7 @@ scale-down-placement-controller-csv:
 	fi
 
 CRD_SCHEMA_CHECKER_VERSION ?= release-4.16
-BRANCH ?= main
+BRANCH ?= 18.0-fr2
 
 PHONY: crd-schema-check
 crd-schema-check: manifests
