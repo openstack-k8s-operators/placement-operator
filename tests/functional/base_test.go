@@ -30,8 +30,8 @@ import (
 )
 
 type Names struct {
-	Namespace              string
-	PlacementAPIName       types.NamespacedName
+	Namespace string
+	//	PlacementAPIName       types.NamespacedName
 	ConfigMapName          types.NamespacedName
 	DBSyncJobName          types.NamespacedName
 	MariaDBDatabaseName    types.NamespacedName
