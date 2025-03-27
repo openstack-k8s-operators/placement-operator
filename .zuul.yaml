@@ -1,4 +1,62 @@
 ---
+- job:
+    name: placement-operator-kuttl
+    parent: cifmw-multinode-kuttl-operator-target
+    dependencies: ["openstack-meta-content-provider"]
+    roles:
+      - zuul: github.com/openstack-k8s-operators/ci-framework
+    post-run:
+      - ci/playbooks/collect-logs.yaml
+    vars:
+      collection_namespace_override: "placement-kuttl-default"
+      operator_name: placement-operator
+      placement_repo: "{{ ansible_user_dir }}/src/github.com/openstack-k8s-operators/placement-operator"
+      zuul_log_collection: true
+      placement_hook: "{{ ansible_user_dir }}/{{ zuul.projects['github.com/openstack-k8s-operators/placement-operator'].src_dir }}/ci/placement-operator-kuttl/deploy_webhooks.yaml"
+      pre_kuttl_from_operator:
+        - name: 70 Create placement webhooks
+          type: playbook
+          source: "{{ placement_hook }}"
+          extra_vars:
+            placement_catalog_image: "{{ content_provider_registry_ip }}:5001/openstack-k8s-operators/placement-operator-index:{{ zuul.patchset }}"
+    extra-vars:
+      crc_ci_bootstrap_networking:
+        networks:
+          default:
+            range: 192.168.122.0/24
+            mtu: 1500
+          internal-api:
+            vlan: 20
+            range: 172.17.0.0/24
+          storage:
+            vlan: 21
+            range: 172.18.0.0/24
+          tenant:
+            vlan: 22
+            range: 172.19.0.0/24
+        instances:
+          controller:
+            networks:
+              default:
+                ip: 192.168.122.11
+          crc:
+            networks:
+              default:
+                ip: 192.168.122.10
+              internal-api:
+                ip: 172.17.0.5
+              storage:
+                ip: 172.18.0.5
+              tenant:
+                ip: 172.19.0.5
+
+- job:
+    name: placement-operator-tempest-multinode
+    parent: nova-operator-tempest-multinode
+    vars:
+      cifmw_test_operator_tempest_include_list: |
+        '(?!.*\[.*\bslow\b.*\])(^tempest\.api)'
+        '(?!.*\[.*\bslow\b.*\])(^tempest\.scenario)|(^tempest\.serial_tests)'
 
 - project:
     name: openstack-k8s-operators/placement-operator
@@ -6,4 +64,6 @@
     merge-mode: rebase
     github-check:
       jobs:
-        - noop
+        - openstack-meta-content-provider
+        - placement-operator-kuttl
+        - placement-operator-tempest-multinode
