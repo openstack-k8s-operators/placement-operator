@@ -1213,7 +1213,6 @@ func (r *PlacementAPIReconciler) ensureDeployment(
 		return ctrl.Result{}, nil
 	}
 
-	deployment := depl.GetDeployment()
 	if depl.GetDeployment().Generation == depl.GetDeployment().Status.ObservedGeneration {
 		instance.Status.ReadyCount = depl.GetDeployment().Status.ReadyReplicas
 	}
@@ -1238,7 +1237,7 @@ func (r *PlacementAPIReconciler) ensureDeployment(
 		return ctrl.Result{}, err
 	}
 
-	if instance.Status.ReadyCount == *instance.Spec.Replicas && deployment.Generation == deployment.Status.ObservedGeneration {
+	if deployment.IsReady(depl.GetDeployment()) {
 		instance.Status.Conditions.MarkTrue(condition.DeploymentReadyCondition, condition.DeploymentReadyMessage)
 	} else {
 		Log.Info("Deployment is not ready")
