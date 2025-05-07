@@ -93,7 +93,7 @@ func ensureSecret(
 				condition.InputReadyCondition,
 				condition.RequestedReason,
 				condition.SeverityInfo,
-				fmt.Sprintf("Input data resources missing: %s", "secret/"+secretName.Name)))
+				"%s", fmt.Sprintf("Input data resources missing: %s", "secret/"+secretName.Name)))
 			return "",
 				ctrl.Result{},
 				*secret,
@@ -381,7 +381,7 @@ func (r *PlacementAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request
 					condition.TLSInputReadyCondition,
 					condition.RequestedReason,
 					condition.SeverityInfo,
-					fmt.Sprintf(condition.TLSInputReadyWaitingMessage, instance.Spec.TLS.CaBundleSecretName)))
+					condition.TLSInputReadyWaitingMessage, instance.Spec.TLS.CaBundleSecretName))
 				return ctrl.Result{}, nil
 			}
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -406,7 +406,7 @@ func (r *PlacementAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				condition.TLSInputReadyCondition,
 				condition.RequestedReason,
 				condition.SeverityInfo,
-				fmt.Sprintf(condition.TLSInputReadyWaitingMessage, err.Error())))
+				condition.TLSInputReadyWaitingMessage, err.Error()))
 			return ctrl.Result{}, nil
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
