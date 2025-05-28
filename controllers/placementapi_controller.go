@@ -290,6 +290,22 @@ func (r *PlacementAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// ConfigMap
 	configMapVars := make(map[string]env.Setter)
 
+	// hash the endpoint URLs of the services this depends on
+	// By adding the hash to the hash of hashes being added to the deployment
+	// allows it to get restarted, in case the endpoint changes and it requires
+	// the current cached ones to be updated.
+	endpointUrlsHash, err := keystonev1.GetHashforKeystoneEndpointUrlsForServices(
+		ctx,
+		h,
+		instance.Namespace,
+		ptr.To(string(endpoint.EndpointInternal)),
+		endpointList,
+	)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	configMapVars["endpointUrlsHash"] = env.SetValue(endpointUrlsHash)
+
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
@@ -437,7 +453,6 @@ func (r *PlacementAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// so we need to return and reconcile again
 		return ctrl.Result{}, nil
 	}
-
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
 	serviceAnnotations, result, err := r.ensureNetworkAttachments(ctx, h, instance)
@@ -836,6 +851,7 @@ const (
 	tlsAPIInternalField     = ".spec.tls.api.internal.secretName"
 	tlsAPIPublicField       = ".spec.tls.api.public.secretName"
 	topologyField           = ".spec.topologyRef.Name"
+	endpointNova            = "nova"
 )
 
 var allWatchFields = []string{
@@ -844,6 +860,10 @@ var allWatchFields = []string{
 	tlsAPIInternalField,
 	tlsAPIPublicField,
 	topologyField,
+}
+
+var endpointList = []string{
+	endpointNova,
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -930,6 +950,9 @@ func (r *PlacementAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&keystonev1.KeystoneEndpoint{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsWithAppSelectorLabelInNamespace),
+			builder.WithPredicates(keystonev1.KeystoneEndpointStatusChangedPredicate)).
 		Complete(r)
 }
 
@@ -947,6 +970,40 @@ func (r *PlacementAPIReconciler) findObjectsForSrc(ctx context.Context, src clie
 		err := r.List(ctx, crList, listOps)
 		if err != nil {
 			l.Error(err, fmt.Sprintf("listing %s for field: %s - %s", crList.GroupVersionKind().Kind, field, src.GetNamespace()))
+			return requests
+		}
+
+		for _, item := range crList.Items {
+			l.Info(fmt.Sprintf("input source %s changed, reconcile: %s - %s", src.GetName(), item.GetName(), item.GetNamespace()))
+
+			requests = append(requests,
+				reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      item.GetName(),
+						Namespace: item.GetNamespace(),
+					},
+				},
+			)
+		}
+	}
+
+	return requests
+}
+
+func (r *PlacementAPIReconciler) findObjectsWithAppSelectorLabelInNamespace(ctx context.Context, src client.Object) []reconcile.Request {
+	requests := []reconcile.Request{}
+
+	l := log.FromContext(context.Background()).WithName("Controllers").WithName("PlacementAPI")
+
+	// if the endpoint has the service label and its in our endpointList, reconcile the CR in the namespace
+	if svc, ok := src.GetLabels()[common.AppSelector]; ok && util.StringInSlice(svc, endpointList) {
+		crList := &placementv1.PlacementAPIList{}
+		listOps := &client.ListOptions{
+			Namespace: src.GetNamespace(),
+		}
+		err := r.List(ctx, crList, listOps)
+		if err != nil {
+			l.Error(err, fmt.Sprintf("listing %s for namespace: %s", crList.GroupVersionKind().Kind, src.GetNamespace()))
 			return requests
 		}
 
