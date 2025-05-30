@@ -26,6 +26,7 @@ import (
 	//revive:disable-next-line:dot-imports
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
@@ -789,6 +790,7 @@ var _ = Describe("PlacementAPI controller", func() {
 			endpoints := keystoneEndpoint.Spec.Endpoints
 			Expect(endpoints).To(HaveKeyWithValue("public", "http://placement-openstack.apps-crc.testing"))
 			Expect(endpoints).To(HaveKeyWithValue("internal", "http://placement-internal."+namespace+".svc:8778"))
+			Expect(keystoneEndpoint.Labels).To(HaveKeyWithValue(common.AppSelector, "placement"))
 
 			th.ExpectCondition(
 				names.PlacementAPIName,
@@ -800,7 +802,11 @@ var _ = Describe("PlacementAPI controller", func() {
 	})
 
 	Context("PlacementAPI is fully deployed", func() {
+		novaEndpoint := types.NamespacedName{}
 		BeforeEach(func() {
+			novaEndpoint = types.NamespacedName{Name: "nova", Namespace: namespace}
+			DeferCleanup(keystone.DeleteKeystoneEndpoint, keystone.CreateKeystoneEndpoint(novaEndpoint))
+			keystone.SimulateKeystoneEndpointReady(novaEndpoint)
 			DeferCleanup(th.DeleteInstance, CreatePlacementAPI(names.PlacementAPIName, GetDefaultPlacementAPISpec()))
 			DeferCleanup(
 				k8sClient.Delete, ctx, CreatePlacementAPISecret(namespace, SecretName))
@@ -832,7 +838,7 @@ var _ = Describe("PlacementAPI controller", func() {
 			Expect(placement.Finalizers).To(ContainElement("openstack.org/placementapi"))
 			keystoneService := keystone.GetKeystoneService(names.KeystoneServiceName)
 			Expect(keystoneService.Finalizers).To(ContainElement("openstack.org/placementapi"))
-			keystoneEndpoint := keystone.GetKeystoneService(names.KeystoneEndpointName)
+			keystoneEndpoint := keystone.GetKeystoneEndpoint(names.KeystoneEndpointName)
 			Expect(keystoneEndpoint.Finalizers).To(ContainElement("openstack.org/placementapi"))
 			db := mariadb.GetMariaDBDatabase(names.MariaDBDatabaseName)
 			Expect(db.Finalizers).To(ContainElement("openstack.org/placementapi"))
@@ -843,7 +849,7 @@ var _ = Describe("PlacementAPI controller", func() {
 
 			keystoneService = keystone.GetKeystoneService(names.KeystoneServiceName)
 			Expect(keystoneService.Finalizers).NotTo(ContainElement("openstack.org/placementapi"))
-			keystoneEndpoint = keystone.GetKeystoneService(names.KeystoneEndpointName)
+			keystoneEndpoint = keystone.GetKeystoneEndpoint(names.KeystoneEndpointName)
 			Expect(keystoneEndpoint.Finalizers).NotTo(ContainElement("openstack.org/placementapi"))
 			db = mariadb.GetMariaDBDatabase(names.MariaDBDatabaseName)
 			Expect(db.Finalizers).NotTo(ContainElement("openstack.org/placementapi"))
@@ -896,6 +902,35 @@ var _ = Describe("PlacementAPI controller", func() {
 			}, timeout, interval).Should(Succeed())
 		})
 
+		It("updates the deployment if nova internal endpoint changes", func() {
+			deployment := th.GetDeployment(names.DeploymentName)
+			oldConfigHash := GetEnvVarValue(deployment.Spec.Template.Spec.Containers[0].Env, "CONFIG_HASH", "")
+			Expect(oldConfigHash).NotTo(Equal(""))
+
+			keystone.UpdateKeystoneEndpoint(novaEndpoint, "internal", "https://nova-internal")
+			logger.Info("Reconfigured")
+
+			Eventually(func(g Gomega) {
+				deployment := th.GetDeployment(names.DeploymentName)
+				newConfigHash := GetEnvVarValue(deployment.Spec.Template.Spec.Containers[0].Env, "CONFIG_HASH", "")
+				g.Expect(newConfigHash).NotTo(Equal(oldConfigHash))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("updates the deployment if nova internal endpoint gets deleted", func() {
+			deployment := th.GetDeployment(names.DeploymentName)
+			oldConfigHash := GetEnvVarValue(deployment.Spec.Template.Spec.Containers[0].Env, "CONFIG_HASH", "")
+			Expect(oldConfigHash).NotTo(Equal(""))
+
+			keystone.DeleteKeystoneEndpoint(novaEndpoint)
+			logger.Info("Reconfigured")
+
+			Eventually(func(g Gomega) {
+				deployment := th.GetDeployment(names.DeploymentName)
+				newConfigHash := GetEnvVarValue(deployment.Spec.Template.Spec.Containers[0].Env, "CONFIG_HASH", "")
+				g.Expect(newConfigHash).NotTo(Equal(oldConfigHash))
+			}, timeout, interval).Should(Succeed())
+		})
 	})
 
 	When("A PlacementAPI is created with TLS", func() {
