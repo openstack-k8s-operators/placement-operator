@@ -8,11 +8,11 @@ require (
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.6
 	github.com/onsi/ginkgo/v2 v2.20.1
 	github.com/onsi/gomega v1.34.1
-	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20250707175817-90c282a37a6b
-	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20250707142354-ec379a697068
+	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20250730105425-ac390cdfa7a4
+	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20250802062151-45fa5a3e74e3
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20250605082218-a58074898dd7
 	github.com/openstack-k8s-operators/lib-common/modules/test v0.6.1-0.20250605082218-a58074898dd7
-	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20250623172438-ee017ae3da75
+	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20250727093444-c8e058db9415
 	github.com/openstack-k8s-operators/placement-operator/api v0.3.1-0.20240216174613-3d349f26e681
 	go.uber.org/zap v1.27.0
 	k8s.io/api v0.29.15
