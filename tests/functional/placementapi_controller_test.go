@@ -1438,4 +1438,46 @@ var _ = Describe("PlacementAPI reconfiguration", func() {
 
 	})
 
+	When("an ApplicationCredential is created for Placement", func() {
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreatePlacementAPI(names.PlacementAPIName, GetDefaultPlacementAPISpec()))
+			DeferCleanup(
+				k8sClient.Delete, ctx, CreatePlacementAPISecret(names.Namespace, SecretName))
+			keystoneAPIName := keystone.CreateKeystoneAPI(names.Namespace)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPIName)
+
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					names.Namespace,
+					GetDefaultPlacementAPISpec()["databaseInstance"].(string),
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			mariadb.SimulateMariaDBDatabaseCompleted(names.MariaDBDatabaseName)
+			mariadb.SimulateMariaDBAccountCompleted(names.MariaDBAccount)
+
+			// Create AC secret
+			acSecretName := fmt.Sprintf("ac-%s-secret", placement.ServiceName)
+			acSecret := th.CreateSecret(
+				types.NamespacedName{Namespace: names.Namespace, Name: acSecretName},
+				map[string][]byte{
+					"AC_ID":     []byte("test-ac-id"),
+					"AC_SECRET": []byte("test-ac-secret"),
+				},
+			)
+			DeferCleanup(th.DeleteInstance, acSecret)
+		})
+
+		It("should render ApplicationCredential auth in placement.conf", func() {
+			configSecret := th.GetSecret(names.ConfigMapName)
+			conf := configSecret.Data["placement.conf"]
+
+			Expect(conf).To(ContainSubstring("application_credential_id = test-ac-id"))
+			Expect(conf).To(ContainSubstring("application_credential_secret = test-ac-secret"))
+		})
+	})
+
 })
