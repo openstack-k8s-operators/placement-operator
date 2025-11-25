@@ -365,6 +365,11 @@ func (r *PlacementAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, nil
 	}
 
+	// Verify Application Credentials if available
+	if result, err := keystonev1.VerifyApplicationCredentialsForService(ctx, r.Client, instance.Namespace, placement.ServiceName, &configMapVars, 10*time.Second); err != nil || result.RequeueAfter > 0 {
+		return result, err
+	}
+
 	err = r.generateServiceConfigMaps(ctx, h, instance, secret, &configMapVars, db)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
@@ -859,6 +864,41 @@ var allWatchFields = []string{
 	topologyField,
 }
 
+// Application Credential secret watching function
+func (r *PlacementAPIReconciler) acSecretFn(_ context.Context, o client.Object) []reconcile.Request {
+	name := o.GetName()
+	ns := o.GetNamespace()
+	result := []reconcile.Request{}
+
+	// Only handle Secret objects
+	if _, isSecret := o.(*corev1.Secret); !isSecret {
+		return nil
+	}
+
+	// Check if this is a placement AC secret by name pattern (ac-placement-secret)
+	expectedSecretName := keystonev1.GetACSecretName(placement.ServiceName)
+	if name == expectedSecretName {
+		// get all PlacementAPI CRs in this namespace
+		placementAPIs := &placementv1.PlacementAPIList{}
+		listOpts := []client.ListOption{
+			client.InNamespace(ns),
+		}
+		if err := r.List(context.Background(), placementAPIs, listOpts...); err != nil {
+			return nil
+		}
+
+		for _, cr := range placementAPIs.Items {
+			result = append(result, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: cr.Namespace,
+					Name:      cr.Name,
+				},
+			})
+		}
+	}
+	return result
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *PlacementAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// index passwordSecretField
@@ -940,6 +980,8 @@ func (r *PlacementAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
+		Watches(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.acSecretFn)).
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
@@ -1376,6 +1418,18 @@ func (r *PlacementAPIReconciler) generateServiceConfigMaps(
 			instance.Status.DatabaseHostname,
 			placement.DatabaseName,
 		),
+	}
+
+	templateParameters["UseApplicationCredentials"] = false
+	// Try to get Application Credential for this service
+	if acData, err := keystonev1.GetApplicationCredentialFromSecret(ctx, r.Client, instance.Namespace, placement.ServiceName); err != nil {
+		h.GetLogger().Error(err, "Failed to get ApplicationCredential for service", "service", placement.ServiceName)
+		return err
+	} else if acData != nil {
+		templateParameters["UseApplicationCredentials"] = true
+		templateParameters["ACID"] = acData.ID
+		templateParameters["ACSecret"] = acData.Secret
+		h.GetLogger().Info("Using ApplicationCredentials auth", "service", placement.ServiceName)
 	}
 
 	// create httpd  vhost template parameters
