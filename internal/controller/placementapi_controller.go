@@ -849,6 +849,7 @@ const (
 	tlsAPIInternalField     = ".spec.tls.api.internal.secretName"
 	tlsAPIPublicField       = ".spec.tls.api.public.secretName"
 	topologyField           = ".spec.topologyRef.Name"
+	authAppCredSecretField  = ".spec.auth.applicationCredentialSecret" // #nosec G101
 )
 
 var allWatchFields = []string{
@@ -857,6 +858,7 @@ var allWatchFields = []string{
 	tlsAPIInternalField,
 	tlsAPIPublicField,
 	topologyField,
+	authAppCredSecretField,
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -917,6 +919,18 @@ func (r *PlacementAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return nil
 		}
 		return []string{cr.Spec.TopologyRef.Name}
+	}); err != nil {
+		return err
+	}
+
+	// index authAppCredSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &placementv1.PlacementAPI{}, authAppCredSecretField, func(rawObj client.Object) []string {
+		// Extract the application credential secret name from the spec, if one is provided
+		cr := rawObj.(*placementv1.PlacementAPI)
+		if cr.Spec.Auth.ApplicationCredentialSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.Auth.ApplicationCredentialSecret}
 	}); err != nil {
 		return err
 	}
@@ -1376,6 +1390,28 @@ func (r *PlacementAPIReconciler) generateServiceConfigMaps(
 			instance.Status.DatabaseHostname,
 			placement.DatabaseName,
 		),
+	}
+
+	templateParameters["UseApplicationCredentials"] = false
+	// Try to get Application Credential for this service
+	if instance.Spec.Auth.ApplicationCredentialSecret != "" {
+		secret := &corev1.Secret{}
+		key := types.NamespacedName{Namespace: instance.Namespace, Name: instance.Spec.Auth.ApplicationCredentialSecret}
+		if err := r.Get(ctx, key, secret); err != nil {
+			if !k8s_errors.IsNotFound(err) {
+				h.GetLogger().Error(err, "Failed to get ApplicationCredential secret", "secret", key)
+				return err
+			}
+		} else {
+			acID, okID := secret.Data[keystonev1.ACIDSecretKey]
+			acSecret, okSecret := secret.Data[keystonev1.ACSecretSecretKey]
+			if okID && len(acID) > 0 && okSecret && len(acSecret) > 0 {
+				templateParameters["UseApplicationCredentials"] = true
+				templateParameters["ACID"] = string(acID)
+				templateParameters["ACSecret"] = string(acSecret)
+				h.GetLogger().Info("Using ApplicationCredentials auth", "secret", key)
+			}
+		}
 	}
 
 	// create httpd  vhost template parameters
