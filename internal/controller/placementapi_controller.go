@@ -456,6 +456,22 @@ func (r *PlacementAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
+	if instance.Spec.Auth.ApplicationCredentialSecret != "" || instance.Status.ApplicationCredentialSecret != "" {
+		if err := keystonev1.ManageACSecretFinalizer(ctx, h, instance.Namespace,
+			instance.Spec.Auth.ApplicationCredentialSecret,
+			instance.Status.ApplicationCredentialSecret,
+			placement.ACConsumerFinalizer); err != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.ServiceConfigReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.ServiceConfigReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
+	}
+	instance.Status.ApplicationCredentialSecret = instance.Spec.Auth.ApplicationCredentialSecret
+
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
 	serviceAnnotations, result, err := r.ensureNetworkAttachments(ctx, h, instance)
@@ -1092,6 +1108,17 @@ func (r *PlacementAPIReconciler) reconcileDelete(ctx context.Context, instance *
 				return ctrl.Result{}, err
 			}
 			Log.Info("Removed finalizer from our KeystoneService")
+		}
+	}
+
+	// Remove consumer finalizer from AC secrets placement was consuming.
+	for _, secretName := range []string{
+		instance.Status.ApplicationCredentialSecret,
+		instance.Spec.Auth.ApplicationCredentialSecret,
+	} {
+		if err := keystonev1.RemoveACSecretConsumerFinalizer(ctx, helper, instance.Namespace,
+			secretName, placement.ACConsumerFinalizer); err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 
