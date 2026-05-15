@@ -1,3 +1,17 @@
+# ⚠️ DEPRECATED: Repository Moved
+
+**This repository has been deprecated.** The placement-operator functionality has been moved to [nova-operator](https://github.com/openstack-k8s-operators/nova-operator).
+
+## What this means:
+- All existing placement resources will continue to work as before
+- Placement resources are now managed by the nova-controller
+- **No new changes will be accepted in this repository**
+
+## For contributors:
+- **All work targeting FR6** should happen in [nova-operator](https://github.com/openstack-k8s-operators/nova-operator) going forward
+- **Bugfixes for 18.0-fr5**: Should be first landed in nova-operator, then a PR needs to be directly opened with the backport to placement-operator's `18.0-fr5` branch
+- **No new feature development** will be accepted in this repository
+
 # placement-operator
 
 A Kubernetes Operator built using the [Operator Framework](https://github.com/operator-framework) for Go.
