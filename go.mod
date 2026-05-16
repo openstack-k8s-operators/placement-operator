@@ -6,13 +6,13 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.7
-	github.com/onsi/ginkgo/v2 v2.28.1
-	github.com/onsi/gomega v1.39.1
-	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20260401053442-e06fc1a33511
-	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20260321081256-de45f3b1de4f
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20260331122750-ecff41ebb61d
-	github.com/openstack-k8s-operators/lib-common/modules/test v0.6.1-0.20260331122750-ecff41ebb61d
-	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20260403163210-0e5eb2ea6a9c
+	github.com/onsi/ginkgo/v2 v2.28.2
+	github.com/onsi/gomega v1.40.0
+	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20260513130700-78e1a15a8289
+	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20260513130126-175a0958de92
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20260515134210-2e2a0d06648c
+	github.com/openstack-k8s-operators/lib-common/modules/test v0.6.1-0.20260515134210-2e2a0d06648c
+	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20260513143847-4b70b899997a
 	github.com/openstack-k8s-operators/placement-operator/api v0.3.1-0.20240216174613-3d349f26e681
 	k8s.io/api v0.31.14
 	k8s.io/apimachinery v0.31.14
@@ -60,14 +60,13 @@ require (
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/openshift/api v3.9.0+incompatible // indirect
-	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.6.1-0.20260320125710-3a5f82ff0f18 // indirect
-	github.com/openstack-k8s-operators/lib-common/modules/storage v0.6.1-0.20260320125710-3a5f82ff0f18 // indirect
+	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.6.1-0.20260506154724-30a976ba8ef0 // indirect
+	github.com/openstack-k8s-operators/lib-common/modules/storage v0.6.1-0.20260506154724-30a976ba8ef0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
-	github.com/rabbitmq/cluster-operator/v2 v2.16.0 // indirect
 	github.com/spf13/cobra v1.9.1 // indirect
 	github.com/spf13/pflag v1.0.7 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
@@ -82,7 +81,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.1 // indirect
+	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67 // indirect
